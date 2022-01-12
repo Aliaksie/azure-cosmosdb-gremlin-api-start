@@ -1,0 +1,6 @@
+hosts: [db_uri]
+port: db_potr
+username: db_path
+password: db_primary_key
+connectionPool: {enableSsl: false}
+serializer: { className: org.apache.tinkerpop.gremlin.driver.ser.GraphSONMessageSerializerV1d0, config: { serializeResultToString: true  }}
