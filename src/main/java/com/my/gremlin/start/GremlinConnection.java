@@ -35,7 +35,7 @@ public class GremlinConnection {
 
     private static void handleResponseHeaders(Map<String, Object> headers) {
         var code = (Integer) headers.get(GremlinConstant.X_MS_CODE);
-        if (code == 200) {
+        if (code == 200 || code == 404) {
             return;
         }
 
