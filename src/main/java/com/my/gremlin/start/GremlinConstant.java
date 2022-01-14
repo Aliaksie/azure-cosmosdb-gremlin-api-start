@@ -20,7 +20,8 @@ public class GremlinConstant {
 
     // vertex
     // property
-    public static final String NODE_ID = "nodeId";
+    public static final String NODE_ID = "nodeId"; // ?
+    public static final String MEMBER_ID = "memberId";
     public static final String COUNT_ID = "count";
     public static final String CONTENT_REF = "content_ref";
     public static final String AUTHOR = "author";

@@ -2,28 +2,39 @@ package com.my.gremlin.start.model;
 
 public class CircleRequest {
 
-    private String profileId;
-
-    private String userId;
-
-    private String relationship;
+    private String memberId;
 
     private String pk;
 
-    public String getProfileId() {
-        return profileId;
+    private String linkedUserId;
+
+    public CircleType[] getType() {
+        return type;
     }
 
-    public void setProfileId(String profileId) {
-        this.profileId = profileId;
+    public void setType(CircleType[] type) {
+        this.type = type;
     }
 
-    public String getUserId() {
-        return userId;
+    private CircleType[]  type; // could be null
+
+    private String relationship;
+
+
+    public String getMemberId() {
+        return memberId;
     }
 
-    public void setUserId(String userId) {
-        this.userId = userId;
+    public void setMemberId(String memberId) {
+        this.memberId = memberId;
+    }
+
+    public String getLinkedUserId() {
+        return linkedUserId;
+    }
+
+    public void setLinkedUserId(String linkedUserId) {
+        this.linkedUserId = linkedUserId;
     }
 
     public String getRelationship() {
@@ -40,5 +51,9 @@ public class CircleRequest {
 
     public void setPk(String pk) {
         this.pk = pk;
+    }
+
+    public enum CircleType {
+        HEALTH, CARE
     }
 }

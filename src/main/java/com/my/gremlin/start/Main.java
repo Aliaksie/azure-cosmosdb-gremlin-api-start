@@ -2,9 +2,7 @@ package com.my.gremlin.start;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -24,6 +22,7 @@ import org.apache.tinkerpop.gremlin.driver.Result;
 import org.apache.tinkerpop.gremlin.driver.remote.DriverRemoteConnection;
 import org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 
 public class Main {
 
@@ -62,9 +61,13 @@ public class Main {
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+
+        // init def groups for ACL goal and etc.
+        initGroup(client, g);
+
         var rq = new CircleRequest();
-        rq.setUserId("userId_02");
-        rq.setProfileId("profileId_01");
+        rq.setLinkedUserId("userId_02");
+        rq.setMemberId("profileId_01");
         rq.setRelationship("pet");
         rq.setPk("default");
         create(client, g, rq);
@@ -87,7 +90,7 @@ public class Main {
     }
 
     private static HashMap<Object, Object> getMap(ObjectMapper objectMapper,
-            Map<String, List<Map<String, String>>> o) {
+                                                  Map<String, List<Map<String, String>>> o) {
         var map = new HashMap<>();
         map.put(objectMapper.convertValue(o.get(GremlinConstant.VERTEX), Vertex.class), objectMapper
                 .convertValue(o.get(GremlinConstant.EDGE), Edge.class));
@@ -114,24 +117,115 @@ public class Main {
         return GremlinConnection.executeQuery(client, t);
     }
 
+    @SuppressWarnings("unchecked")
+    public static void initGroup(Client client, GraphTraversalSource g) {
+        var groups = List.of(GremlinConstant.ROOT_HEALTH, GremlinConstant.ROOT_CARE,
+                GremlinConstant.ADVISOR, GremlinConstant.COACH, GremlinConstant.PRIMARY, GremlinConstant.SECONDARY);
+        // todo: improve ?
+        groups.forEach(o -> {
+            GremlinConnection.executeQuery(client, g.V().has(GremlinConstant.TYPE, o).hasLabel(GremlinConstant.GROUP_LB)
+                    .fold()
+                    .coalesce(__.unfold(), __.addV(GremlinConstant.GROUP_LB)
+                            .property(GremlinConstant.NODE_ID, UUID.randomUUID().toString())
+                            .property(GremlinConstant.PK, "default")
+                            .property(GremlinConstant.TYPE, o)));
+        });
+    }
+
+
+    /*
+     * todo: nodeId?
+     *  g.V().has(GremlinConstant.NODE_ID, rq.getMemberId())
+                            .outE(GremlinConstant.OWNER_LB).as(GremlinConstant.EDGE)
+                            .inV().as(GremlinConstant.VERTEX)
+                            .select(GremlinConstant.VERTEX)
+     */
+    @SuppressWarnings("unchecked")
+    public static void addMember(Client client, GraphTraversalSource g, CircleRequest rq) {
+        var tMember = g.V().has(GremlinConstant.NODE_ID, rq.getMemberId()).hasLabel(GremlinConstant.MEMBER_LB).fold()
+                .coalesce(__.unfold(), __.addV(GremlinConstant.MEMBER_LB)
+                        .property(GremlinConstant.NODE_ID, rq.getMemberId()) // ?
+                        .property(GremlinConstant.PK, rq.getPk())
+                        .property(GremlinConstant.MEMBER_ID, rq.getMemberId())); // ?
+
+        var rs = GremlinConnection.executeQuery(client, tMember);
+
+        // memberId = linkedUserId (OWNER) and type == null;  ... more like care without THAN nothing more
+        if (rq.getType() != null) {
+            // memberId = linkedUserId (OWNER) and type != null;  ... more like recipient THAN add and create group base of type[]
+            if (rq.getMemberId().equals(rq.getLinkedUserId())) {
+                Arrays.stream(rq.getType()).forEach(o -> {
+                    var tGroup = g.V().has(GremlinConstant.NODE_ID, rq.getMemberId())
+                            .has(GremlinConstant.TYPE, o.toString().toLowerCase())
+                            .hasLabel(GremlinConstant.GROUP_LB)
+                            .fold()
+                            .coalesce(__.unfold(), __.addV(GremlinConstant.GROUP_LB)
+                                    .property(GremlinConstant.NODE_ID, rq.getMemberId()) // ?
+                                    .property(GremlinConstant.PK, rq.getPk())
+                                    .property(GremlinConstant.TYPE, o.toString().toLowerCase()));
+                    GremlinConnection.executeQuery(client, tGroup);
+
+                    var tAddEdge = tMember
+                            .addE(GremlinConstant.OWNER_LB)
+                            .property(GremlinConstant.PK, rq.getPk())
+                            .to(tGroup);
+                    GremlinConnection.executeQuery(client, tAddEdge);
+                });
+            } else {
+                // memberId != linkedUserId and type == CARE; ... more like care with recipient THAN add care to recipient group
+                if (rq.getType()[0] == CircleRequest.CircleType.CARE) {
+                    var tCareGroup = g.V().has(GremlinConstant.NODE_ID, rq.getLinkedUserId())
+                            .has(GremlinConstant.TYPE, GremlinConstant.CARE_LB).hasLabel(GremlinConstant.GROUP_LB);
+                    rs = GremlinConnection.executeQuery(client, tCareGroup);
+                    if(rs.isEmpty()) {
+                        System.out.println("WARN:Recipient doesn't has care group");
+                    }
+
+                    var tAddEdge = tMember
+                            .addE(GremlinConstant.CARE_LB)
+                            .property(GremlinConstant.PK, rq.getPk())
+                            .property(GremlinConstant.RELATIONSHIP, rq.getRelationship())
+                            .to(tCareGroup);
+                    GremlinConnection.executeQuery(client, tAddEdge);
+                }
+
+                // memberId != linkedUserId and type == HEALTH; ... more like health with recipient THAN health care to recipient group
+                if (rq.getType()[0] == CircleRequest.CircleType.HEALTH) {
+                    var tHealthGroup = g.V().has(GremlinConstant.NODE_ID, rq.getLinkedUserId())
+                            .has(GremlinConstant.TYPE, GremlinConstant.HEALTH_LB).hasLabel(GremlinConstant.GROUP_LB);
+                    rs = GremlinConnection.executeQuery(client, tHealthGroup);
+                    if(rs.isEmpty()) {
+                        System.out.println("WARN:Recipient doesn't has health group");
+                    }
+
+                    var tAddEdge = tMember
+                            .addE(GremlinConstant.HEALTH_LB)
+                            .property(GremlinConstant.PK, rq.getPk())
+                            .to(tHealthGroup);
+                    GremlinConnection.executeQuery(client, tAddEdge);
+                }
+            }
+        }
+    }
+
     private static void create(Client client, GraphTraversalSource g, CircleRequest rq) {
 
-        var tCircle = g.V().has(GremlinConstant.NODE_ID, rq.getProfileId()).hasLabel(GremlinConstant.GROUP_LB);
+        var tCircle = g.V().has(GremlinConstant.NODE_ID, rq.getMemberId()).hasLabel(GremlinConstant.GROUP_LB);
         var circle = GremlinConnection.executeQuery(client, tCircle);
         if (circle.isEmpty()) {
             var tCreation = g.addV(GremlinConstant.GROUP_LB)
-                    .property(GremlinConstant.NODE_ID, rq.getProfileId())
+                    .property(GremlinConstant.NODE_ID, rq.getMemberId())
                     .property(GremlinConstant.PK, rq.getPk());
             var results = GremlinConnection.executeQuery(client, tCreation);
             System.out.println("Circle vertex created: " + results);
         }
 
         if (rq.getPk() == null) {
-            var tCaregiver = g.V().has(GremlinConstant.NODE_ID, rq.getUserId()).hasLabel(GremlinConstant.MEMBER_LB);
+            var tCaregiver = g.V().has(GremlinConstant.NODE_ID, rq.getLinkedUserId()).hasLabel(GremlinConstant.MEMBER_LB);
             var caregiver = GremlinConnection.executeQuery(client, tCaregiver);
             if (caregiver.isEmpty()) {
                 var tCreation = g.addV(GremlinConstant.MEMBER_LB)
-                        .property(GremlinConstant.NODE_ID, rq.getUserId())
+                        .property(GremlinConstant.NODE_ID, rq.getLinkedUserId())
                         .property(GremlinConstant.PK, rq.getPk());
                 var list = GremlinConnection.executeQuery(client, tCreation);
                 System.out.println("Care vertex created: " + list);
