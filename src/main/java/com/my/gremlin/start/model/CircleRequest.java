@@ -8,8 +8,7 @@ public class CircleRequest {
 
     private String relationship;
 
-    // todo:
-    private String role;
+    private String pk;
 
     public String getProfileId() {
         return profileId;
@@ -35,11 +34,11 @@ public class CircleRequest {
         this.relationship = relationship;
     }
 
-    public String getRole() {
-        return role;
+    public String getPk() {
+        return pk;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setPk(String pk) {
+        this.pk = pk;
     }
 }

@@ -66,7 +66,7 @@ public class Main {
         rq.setUserId("userId_02");
         rq.setProfileId("profileId_01");
         rq.setRelationship("pet");
-        //        rq.role("member");
+        rq.setPk("default");
         create(client, g, rq);
 
         var circles = findAllCircle(client, g, "userId_02");
@@ -96,7 +96,7 @@ public class Main {
 
     private static List<Result> findAllCircle(Client client, GraphTraversalSource g, String nodeId) {
         var t = g.V().has(GremlinConstant.NODE_ID, nodeId)
-                .hasLabel(GremlinConstant.CARE_LB)
+                .hasLabel(GremlinConstant.MEMBER_LB)
                 .outE(GremlinConstant.BELONGS_EDGE_LB).as(GremlinConstant.EDGE)
                 .inV().as(GremlinConstant.VERTEX)
                 .select(GremlinConstant.EDGE, GremlinConstant.VERTEX);
@@ -106,7 +106,7 @@ public class Main {
 
     private static List<Result> circleDetails(Client client, GraphTraversalSource g, String nodeId) {
         var t = g.V().has(GremlinConstant.NODE_ID, nodeId)
-                .hasLabel(GremlinConstant.CIRCLE_LB)
+                .hasLabel(GremlinConstant.GROUP_LB)
                 .inE(GremlinConstant.BELONGS_EDGE_LB).as(GremlinConstant.EDGE)
                 .bothV().as(GremlinConstant.VERTEX)
                 .select(GremlinConstant.EDGE, GremlinConstant.VERTEX);
@@ -116,27 +116,31 @@ public class Main {
 
     private static void create(Client client, GraphTraversalSource g, CircleRequest rq) {
 
-        var tCircle = g.V().has(GremlinConstant.NODE_ID, rq.getProfileId()).hasLabel(GremlinConstant.CIRCLE_LB);
+        var tCircle = g.V().has(GremlinConstant.NODE_ID, rq.getProfileId()).hasLabel(GremlinConstant.GROUP_LB);
         var circle = GremlinConnection.executeQuery(client, tCircle);
         if (circle.isEmpty()) {
-            var tCreation = g.addV(GremlinConstant.CIRCLE_LB).property(GremlinConstant.NODE_ID, rq.getProfileId());
+            var tCreation = g.addV(GremlinConstant.GROUP_LB)
+                    .property(GremlinConstant.NODE_ID, rq.getProfileId())
+                    .property(GremlinConstant.PK, rq.getPk());
             var results = GremlinConnection.executeQuery(client, tCreation);
             System.out.println("Circle vertex created: " + results);
         }
 
-        if (rq.getRole() == null) {
-            var tCaregiver = g.V().has(GremlinConstant.NODE_ID, rq.getUserId()).hasLabel(GremlinConstant.CARE_LB);
+        if (rq.getPk() == null) {
+            var tCaregiver = g.V().has(GremlinConstant.NODE_ID, rq.getUserId()).hasLabel(GremlinConstant.MEMBER_LB);
             var caregiver = GremlinConnection.executeQuery(client, tCaregiver);
             if (caregiver.isEmpty()) {
-                var tCreation = g.addV(GremlinConstant.CARE_LB).property(GremlinConstant.NODE_ID, rq.getUserId());
+                var tCreation = g.addV(GremlinConstant.MEMBER_LB)
+                        .property(GremlinConstant.NODE_ID, rq.getUserId())
+                        .property(GremlinConstant.PK, rq.getPk());
                 var list = GremlinConnection.executeQuery(client, tCreation);
                 System.out.println("Care vertex created: " + list);
             }
 
             var tAddEdge = tCaregiver
                     .addE(GremlinConstant.BELONGS_EDGE_LB)
-                    .property(GremlinConstant.ROLE, GremlinConstant.OWNER)
                     .property(GremlinConstant.RELATIONSHIP, rq.getRelationship())
+                    .property(GremlinConstant.PK, rq.getPk())
                     .to(tCircle);
             var resultList = GremlinConnection.executeQuery(client, tAddEdge);
             System.out.println("Care vertex added to Circle: " + resultList);
