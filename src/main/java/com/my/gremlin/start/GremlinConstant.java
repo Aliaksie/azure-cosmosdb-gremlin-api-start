@@ -47,6 +47,7 @@ public class GremlinConstant {
     public static final String LIKE_LB = "like";
 
     // edge labels
+    public static final String PARENT_LB = "parent";
     public static final String OWNER_LB = "owner";
     public static final String BELONGS_EDGE_LB = "belongs";
     public static final String CARE_LB = "care";

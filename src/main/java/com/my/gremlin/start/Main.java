@@ -21,6 +21,7 @@ import org.apache.tinkerpop.gremlin.driver.Cluster;
 import org.apache.tinkerpop.gremlin.driver.Result;
 import org.apache.tinkerpop.gremlin.driver.remote.DriverRemoteConnection;
 import org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 
@@ -164,12 +165,19 @@ public class Main {
                                     .property(GremlinConstant.PK, rq.getPk())
                                     .property(GremlinConstant.TYPE, o.toString().toLowerCase()));
                     GremlinConnection.executeQuery(client, tGroup);
-
                     var tAddEdge = tMember
                             .addE(GremlinConstant.OWNER_LB)
                             .property(GremlinConstant.PK, rq.getPk())
                             .to(tGroup);
                     GremlinConnection.executeQuery(client, tAddEdge);
+
+                    // todo: !
+                    if (o == CircleRequest.CircleType.CARE) {
+                        addCareGroupDf(client, g, tGroup);
+                    }
+                    if (o == CircleRequest.CircleType.HEALTH) {
+                        addHealthGroupDf(client, g, tGroup);
+                    }
                 });
             } else {
                 // memberId != linkedUserId and type == CARE; ... more like care with recipient THAN add care to recipient group
@@ -206,6 +214,34 @@ public class Main {
                 }
             }
         }
+    }
+
+    private static void addCareGroupDf(Client client, GraphTraversalSource g, GraphTraversal<org.apache.tinkerpop.gremlin.structure.Vertex,org.apache.tinkerpop.gremlin.structure.Vertex> tGroup) {
+        var tAddPrEdge = tGroup
+                .addE(GremlinConstant.PARENT_LB)
+                .property(GremlinConstant.PK, "default")
+                .to(g.V().has(GremlinConstant.TYPE, GremlinConstant.PRIMARY).hasLabel(GremlinConstant.GROUP_LB));
+        GremlinConnection.executeQuery(client, tAddPrEdge);
+
+        var tAddScEdge = tGroup
+                .addE(GremlinConstant.PARENT_LB)
+                .property(GremlinConstant.PK, "default")
+                .to(g.V().has(GremlinConstant.TYPE, GremlinConstant.SECONDARY).hasLabel(GremlinConstant.GROUP_LB));
+        GremlinConnection.executeQuery(client, tAddPrEdge);
+    }
+
+    private static void addHealthGroupDf(Client client, GraphTraversalSource g, GraphTraversal<org.apache.tinkerpop.gremlin.structure.Vertex,org.apache.tinkerpop.gremlin.structure.Vertex> tGroup) {
+        var tAddPrEdge = tGroup
+                .addE(GremlinConstant.PARENT_LB)
+                .property(GremlinConstant.PK, "default")
+                .to(g.V().has(GremlinConstant.TYPE, GremlinConstant.ADVISOR).hasLabel(GremlinConstant.GROUP_LB));
+        GremlinConnection.executeQuery(client, tAddPrEdge);
+
+        var tAddScEdge = tGroup
+                .addE(GremlinConstant.PARENT_LB)
+                .property(GremlinConstant.PK, "default")
+                .to(g.V().has(GremlinConstant.TYPE, GremlinConstant.COACH).hasLabel(GremlinConstant.GROUP_LB));
+        GremlinConnection.executeQuery(client, tAddPrEdge);
     }
 
     private static void create(Client client, GraphTraversalSource g, CircleRequest rq) {
