@@ -26,10 +26,10 @@ public class GremlinConnection {
                 var responseException = (ResponseException) e.getCause();
                 // todo: error handlers, throw not_found
             }
-            throw new RuntimeException("Error during work with CosmosDB");
+            throw new RuntimeException("Error during work with CosmosDB", e.getCause());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Error during work with CosmosDB");
+            throw new RuntimeException("Error during work with CosmosDB",  e.getCause());
         }
     }
 

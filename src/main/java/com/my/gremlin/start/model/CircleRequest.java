@@ -1,5 +1,8 @@
 package com.my.gremlin.start.model;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class CircleRequest {
 
     private String memberId;
@@ -8,18 +11,27 @@ public class CircleRequest {
 
     private String linkedUserId;
 
-    public CircleType[] getType() {
-        return type;
-    }
+    private List<CircleType> labels; // could be null, only [HEALTH, CARE]
 
-    public void setType(CircleType[] type) {
-        this.type = type;
-    }
-
-    private CircleType[]  type; // could be null
+    private CircleType type; // could be null
 
     private String relationship;
 
+    public CircleType getType() {
+        return type;
+    }
+
+    public void setType(CircleType type) {
+        this.type = type;
+    }
+
+    public List<CircleType> getLabels() {
+        return labels;
+    }
+
+    public void setLabels(List<CircleType> labels) {
+        this.labels = labels;
+    }
 
     public String getMemberId() {
         return memberId;
@@ -54,6 +66,6 @@ public class CircleRequest {
     }
 
     public enum CircleType {
-        HEALTH, CARE
+        HEALTH, CARE, ADVISOR, COACH, SECONDARY, PRIMARY
     }
 }
